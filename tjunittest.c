@@ -551,8 +551,42 @@ bailout:
   if (dstBuf) tjFree(dstBuf);
 }
 
+#if SIZEOF_SIZE_T == 8
+#define CHECKSIZE(function) { \
+  if ((unsigned long long)size < (unsigned long long)0xFFFFFFFF) \
+    THROW(#function " overflow"); \
+}
+#else
+#define CHECKSIZE(function) { \
+  if (size != (unsigned long)(-1) || \
+      !strcmp(tjGetErrorStr2(NULL), "No error")) \
+    THROW(#function " overflow"); \
+}
+#endif
 
-void bufSizeTest(void)
+static void overflowTest(void)
+{
+  /* Ensure that the various buffer size functions don't overflow */
+  unsigned long size;
+
+  size = tjBufSize(26755, 26755, TJSAMP_444);
+  CHECKSIZE(tjBufSize());
+  size = TJBUFSIZE(26755, 26755);
+  CHECKSIZE(TJBUFSIZE());
+  size = tjBufSizeYUV2(37838, 1, 37838, TJSAMP_444);
+  CHECKSIZE(tjBufSizeYUV2());
+  size = TJBUFSIZEYUV(37838, 37838, TJSAMP_444);
+  CHECKSIZE(TJBUFSIZEYUV());
+  size = tjBufSizeYUV(37838, 37838, TJSAMP_444);
+  CHECKSIZE(tjBufSizeYUV());
+  size = tjPlaneSizeYUV(0, 65536, 0, 65536, TJSAMP_444);
+  CHECKSIZE(tjPlaneSizeYUV());
+
+bailout:
+  return;
+}
+
+static void bufSizeTest(void)
 {
   int w, h, i, subsamp;
   unsigned char *srcBuf = NULL, *dstBuf = NULL;
@@ -847,7 +881,53 @@ int bmpTest(void)
 
 int main(int argc, char *argv[])
 {
+<<<<<<< HEAD
   int i, num4bf = 5;
+=======
+	int i, num4bf=5;
+	#ifdef _WIN32
+	srand((unsigned int)time(NULL));
+	#endif
+	if(argc>1)
+	{
+		for(i=1; i<argc; i++)
+		{
+			if(!strcasecmp(argv[i], "-yuv")) doyuv=1;
+			if(!strcasecmp(argv[i], "-noyuvpad")) pad=1;
+			if(!strcasecmp(argv[i], "-alloc")) alloc=1;
+			if(!strncasecmp(argv[i], "-h", 2) || !strcasecmp(argv[i], "-?"))
+				usage(argv[0]);
+		}
+	}
+	if(alloc) printf("Testing automatic buffer allocation\n");
+	if(doyuv) num4bf=4;
+	overflowtest();
+	doTest(35, 39, _3byteFormats, 2, TJSAMP_444, "test");
+	doTest(39, 41, _4byteFormats, num4bf, TJSAMP_444, "test");
+	doTest(41, 35, _3byteFormats, 2, TJSAMP_422, "test");
+	doTest(35, 39, _4byteFormats, num4bf, TJSAMP_422, "test");
+	doTest(39, 41, _3byteFormats, 2, TJSAMP_420, "test");
+	doTest(41, 35, _4byteFormats, num4bf, TJSAMP_420, "test");
+	doTest(35, 39, _3byteFormats, 2, TJSAMP_440, "test");
+	doTest(39, 41, _4byteFormats, num4bf, TJSAMP_440, "test");
+	doTest(41, 35, _3byteFormats, 2, TJSAMP_411, "test");
+	doTest(35, 39, _4byteFormats, num4bf, TJSAMP_411, "test");
+	doTest(39, 41, _onlyGray, 1, TJSAMP_GRAY, "test");
+	doTest(41, 35, _3byteFormats, 2, TJSAMP_GRAY, "test");
+	doTest(35, 39, _4byteFormats, 4, TJSAMP_GRAY, "test");
+	bufSizeTest();
+	if(doyuv)
+	{
+		printf("\n--------------------\n\n");
+		doTest(48, 48, _onlyRGB, 1, TJSAMP_444, "test_yuv0");
+		doTest(48, 48, _onlyRGB, 1, TJSAMP_422, "test_yuv0");
+		doTest(48, 48, _onlyRGB, 1, TJSAMP_420, "test_yuv0");
+		doTest(48, 48, _onlyRGB, 1, TJSAMP_440, "test_yuv0");
+		doTest(48, 48, _onlyRGB, 1, TJSAMP_411, "test_yuv0");
+		doTest(48, 48, _onlyRGB, 1, TJSAMP_GRAY, "test_yuv0");
+		doTest(48, 48, _onlyGray, 1, TJSAMP_GRAY, "test_yuv0");
+	}
+>>>>>>> 611dba5 ([RESTRICT AUTOMERGE] Prevent integer overflows when handling large images)
 
 #ifdef _WIN32
   srand((unsigned int)time(NULL));

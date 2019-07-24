@@ -159,6 +159,7 @@ int decomp(unsigned char *srcBuf, unsigned char **jpegBuf,
   if ((handle = tjInitDecompress()) == NULL)
     _throwtj("executing tjInitDecompress()");
 
+<<<<<<< HEAD
   if (dstBuf == NULL) {
     if ((dstBuf = (unsigned char *)malloc(pitch * scaledh)) == NULL)
       _throwunix("allocating destination buffer");
@@ -172,6 +173,33 @@ int decomp(unsigned char *srcBuf, unsigned char **jpegBuf,
     int width = doTile ? tilew : scaledw;
     int height = doTile ? tileh : scaledh;
     int yuvSize = tjBufSizeYUV2(width, yuvPad, height, subsamp);
+=======
+	if(dstbuf==NULL)
+	{
+		if ((unsigned long long)pitch * (unsigned long long)scaledh >
+		    (unsigned long long)((size_t)-1))
+			_throw("allocating destination buffer", "Image is too large");
+		if((dstbuf=(unsigned char *)malloc((size_t)pitch*scaledh))==NULL)
+			_throwunix("allocating destination buffer");
+		dstbufalloc=1;
+	}
+	/* Set the destination buffer to gray so we know whether the decompressor
+	   attempted to write to it */
+	memset(dstbuf, 127, pitch*scaledh);
+
+	if(doyuv)
+	{
+		int width=dotile? tilew:scaledw;
+		int height=dotile? tileh:scaledh;
+		unsigned long yuvsize=tjBufSizeYUV2(width, yuvpad, height, subsamp);
+
+		if (yuvsize == (unsigned long)-1)
+			_throwtj("allocating YUV buffer");
+		if((yuvbuf=(unsigned char *)malloc(yuvsize))==NULL)
+			_throwunix("allocating YUV buffer");
+		memset(yuvbuf, 127, yuvsize);
+	}
+>>>>>>> 611dba5 ([RESTRICT AUTOMERGE] Prevent integer overflows when handling large images)
 
     if ((yuvBuf = (unsigned char *)malloc(yuvSize)) == NULL)
       _throwunix("allocating YUV buffer");
@@ -220,8 +248,51 @@ int decomp(unsigned char *srcBuf, unsigned char **jpegBuf,
   }
   if (doYUV) elapsed -= elapsedDecode;
 
+<<<<<<< HEAD
   if (tjDestroy(handle) == -1) _throwtj("executing tjDestroy()");
   handle = NULL;
+=======
+	if(savebmp(tempstr, dstbuf, scaledw, scaledh, pf,
+		(flags&TJFLAG_BOTTOMUP)!=0)==-1)
+		_throwbmp("saving bitmap");
+	ptr=strrchr(tempstr, '.');
+	snprintf(ptr, 1024-(ptr-tempstr), "-err.%s", ext);
+	if(srcbuf && sf.num==1 && sf.denom==1)
+	{
+		if(!quiet) printf("Compression error written to %s.\n", tempstr);
+		if(subsamp==TJ_GRAYSCALE)
+		{
+			unsigned long index, index2;
+			for(row=0, index=0; row<h; row++, index+=pitch)
+			{
+				for(col=0, index2=index; col<w; col++, index2+=ps)
+				{
+					unsigned long rindex=index2+tjRedOffset[pf];
+					unsigned long gindex=index2+tjGreenOffset[pf];
+					unsigned long bindex=index2+tjBlueOffset[pf];
+					int y=(int)((double)srcbuf[rindex]*0.299
+						+ (double)srcbuf[gindex]*0.587
+						+ (double)srcbuf[bindex]*0.114 + 0.5);
+					if(y>255) y=255;
+					if(y<0) y=0;
+					dstbuf[rindex]=abs(dstbuf[rindex]-y);
+					dstbuf[gindex]=abs(dstbuf[gindex]-y);
+					dstbuf[bindex]=abs(dstbuf[bindex]-y);
+				}
+			}
+		}
+		else
+		{
+			for(row=0; row<h; row++)
+				for(col=0; col<w*ps; col++)
+					dstbuf[pitch*row+col]
+						=abs(dstbuf[pitch*row+col]-srcbuf[pitch*row+col]);
+		}
+		if(savebmp(tempstr, dstbuf, w, h, pf,
+			(flags&TJFLAG_BOTTOMUP)!=0)==-1)
+			_throwbmp("saving bitmap");
+	}
+>>>>>>> 611dba5 ([RESTRICT AUTOMERGE] Prevent integer overflows when handling large images)
 
   if (quiet) {
     printf("%-6s%s",
@@ -306,6 +377,7 @@ bailout:
 int fullTest(unsigned char *srcBuf, int w, int h, int subsamp, int jpegQual,
              char *fileName)
 {
+<<<<<<< HEAD
   char tempStr[1024], tempStr2[80];
   FILE *file = NULL;
   tjhandle handle = NULL;
@@ -321,6 +393,24 @@ int fullTest(unsigned char *srcBuf, int w, int h, int subsamp, int jpegQual,
 
   if ((tmpBuf = (unsigned char *)malloc(pitch * h)) == NULL)
     _throwunix("allocating temporary image buffer");
+=======
+	char tempstr[1024], tempstr2[80];
+	FILE *file=NULL;  tjhandle handle=NULL;
+	unsigned char **jpegbuf=NULL, *yuvbuf=NULL, *tmpbuf=NULL, *srcptr, *srcptr2;
+	double start, elapsed, elapsedEncode;
+	int totaljpegsize=0, row, col, i, tilew=w, tileh=h, retval=0;
+	int iter;
+	unsigned long *jpegsize=NULL, yuvsize=0;
+	int ps=tjPixelSize[pf];
+	int ntilesw=1, ntilesh=1, pitch=w*ps;
+	const char *pfStr=pixFormatStr[pf];
+
+	if ((unsigned long long)pitch * (unsigned long long)h >
+	    (unsigned long long)((size_t)-1))
+		_throw("allocating temporary image buffer", "Image is too large");
+	if((tmpbuf=(unsigned char *)malloc((size_t)pitch*h)) == NULL)
+		_throwunix("allocating temporary image buffer");
+>>>>>>> 611dba5 ([RESTRICT AUTOMERGE] Prevent integer overflows when handling large images)
 
   if (!quiet)
     printf(">>>>>  %s (%s) <--> JPEG %s Q%d  <<<<<\n", pfStr,
@@ -343,12 +433,24 @@ int fullTest(unsigned char *srcBuf, int w, int h, int subsamp, int jpegQual,
       _throwunix("allocating JPEG size array");
     memset(jpegSize, 0, sizeof(unsigned long) * ntilesw * ntilesh);
 
+<<<<<<< HEAD
     if ((flags & TJFLAG_NOREALLOC) != 0)
       for (i = 0; i < ntilesw * ntilesh; i++) {
         if ((jpegBuf[i] = (unsigned char *)
                           tjAlloc(tjBufSize(tilew, tileh, subsamp))) == NULL)
           _throwunix("allocating JPEG tiles");
       }
+=======
+		if((flags&TJFLAG_NOREALLOC)!=0)
+			for(i=0; i<ntilesw*ntilesh; i++)
+			{
+				if (tjBufSize(tilew, tileh, subsamp) > (unsigned long)INT_MAX)
+					_throw("getting buffer size", "Image is too large");
+				if((jpegbuf[i]=(unsigned char *)tjAlloc(tjBufSize(tilew, tileh,
+					subsamp)))==NULL)
+					_throwunix("allocating JPEG tiles");
+			}
+>>>>>>> 611dba5 ([RESTRICT AUTOMERGE] Prevent integer overflows when handling large images)
 
     /* Compression test */
     if (quiet == 1)
@@ -360,12 +462,24 @@ int fullTest(unsigned char *srcBuf, int w, int h, int subsamp, int jpegQual,
     if ((handle = tjInitCompress()) == NULL)
       _throwtj("executing tjInitCompress()");
 
+<<<<<<< HEAD
     if (doYUV) {
       yuvSize = tjBufSizeYUV2(tilew, yuvPad, tileh, subsamp);
       if ((yuvBuf = (unsigned char *)malloc(yuvSize)) == NULL)
         _throwunix("allocating YUV buffer");
       memset(yuvBuf, 127, yuvSize);
     }
+=======
+		if(doyuv)
+		{
+			yuvsize=tjBufSizeYUV2(tilew, yuvpad, tileh, subsamp);
+            if (yuvsize == (unsigned long)-1)
+                _throw("allocating YUV buffer", "Image too large");
+			if((yuvbuf=(unsigned char *)malloc(yuvsize))==NULL)
+				_throwunix("allocating YUV buffer");
+			memset(yuvbuf, 127, yuvsize);
+		}
+>>>>>>> 611dba5 ([RESTRICT AUTOMERGE] Prevent integer overflows when handling large images)
 
     /* Benchmark */
     iter = -1;
@@ -382,8 +496,63 @@ int fullTest(unsigned char *srcBuf, int w, int h, int subsamp, int jpegQual,
           int width = min(tilew, w - col * tilew);
           int height = min(tileh, h - row * tileh);
 
+<<<<<<< HEAD
           if (doYUV) {
             double startEncode = getTime();
+=======
+		if(quiet==1) printf("%-5d  %-5d   ", tilew, tileh);
+		if(quiet)
+		{
+			if(doyuv)
+				printf("%-6s%s",
+					sigfig((double)(w*h)/1000000.*(double)iter/elapsedEncode, 4, tempstr,
+						1024), quiet==2? "\n":"  ");
+			printf("%-6s%s",
+				sigfig((double)(w*h)/1000000.*(double)iter/elapsed, 4,	tempstr, 1024),
+				quiet==2? "\n":"  ");
+			printf("%-6s%s",
+				sigfig((double)(w*h*ps)/(double)totaljpegsize, 4, tempstr2, 80),
+				quiet==2? "\n":"  ");
+		}
+		else
+		{
+			printf("\n%s size: %d x %d\n", dotile? "Tile":"Image", tilew,
+				tileh);
+			if(doyuv)
+			{
+				printf("Encode YUV    --> Frame rate:         %f fps\n",
+					(double)iter/elapsedEncode);
+				printf("                  Output image size:  %lu bytes\n", yuvsize);
+				printf("                  Compression ratio:  %f:1\n",
+					(double)(w*h*ps)/(double)yuvsize);
+				printf("                  Throughput:         %f Megapixels/sec\n",
+					(double)(w*h)/1000000.*(double)iter/elapsedEncode);
+				printf("                  Output bit stream:  %f Megabits/sec\n",
+					(double)yuvsize*8./1000000.*(double)iter/elapsedEncode);
+			}
+			printf("%s --> Frame rate:         %f fps\n",
+				doyuv? "Comp from YUV":"Compress     ", (double)iter/elapsed);
+			printf("                  Output image size:  %d bytes\n",
+				totaljpegsize);
+			printf("                  Compression ratio:  %f:1\n",
+				(double)(w*h*ps)/(double)totaljpegsize);
+			printf("                  Throughput:         %f Megapixels/sec\n",
+				(double)(w*h)/1000000.*(double)iter/elapsed);
+			printf("                  Output bit stream:  %f Megabits/sec\n",
+				(double)totaljpegsize*8./1000000.*(double)iter/elapsed);
+		}
+		if(tilew==w && tileh==h && dowrite)
+		{
+			snprintf(tempstr, 1024, "%s_%s_Q%d.jpg", filename, subName[subsamp],
+				jpegqual);
+			if((file=fopen(tempstr, "wb"))==NULL)
+				_throwunix("opening reference image");
+			if(fwrite(jpegbuf[0], jpegsize[0], 1, file)!=1)
+				_throwunix("writing reference image");
+			fclose(file);  file=NULL;
+			if(!quiet) printf("Reference image written to %s\n", tempstr);
+		}
+>>>>>>> 611dba5 ([RESTRICT AUTOMERGE] Prevent integer overflows when handling large images)
 
             if (tjEncodeYUV3(handle, srcPtr2, width, pitch, height, pf, yuvBuf,
                              yuvPad, subsamp, flags) == -1)
@@ -413,8 +582,21 @@ int fullTest(unsigned char *srcBuf, int w, int h, int subsamp, int jpegQual,
     }
     if (doYUV) elapsed -= elapsedEncode;
 
+<<<<<<< HEAD
     if (tjDestroy(handle) == -1) _throwtj("executing tjDestroy()");
     handle = NULL;
+=======
+		for(i=0; i<ntilesw*ntilesh; i++)
+		{
+			if(jpegbuf[i]) tjFree(jpegbuf[i]);
+			jpegbuf[i]=NULL;
+		}
+		free(jpegbuf);  jpegbuf=NULL;
+		if(doyuv)
+		{
+			free(yuvbuf);  yuvbuf=NULL;
+		}
+>>>>>>> 611dba5 ([RESTRICT AUTOMERGE] Prevent integer overflows when handling large images)
 
     if (quiet == 1) printf("%-5d  %-5d   ", tilew, tileh);
     if (quiet) {
@@ -573,12 +755,25 @@ int decompTest(char *fileName)
       _throwunix("allocating JPEG size array");
     memset(jpegSize, 0, sizeof(unsigned long) * ntilesw * ntilesh);
 
+<<<<<<< HEAD
     if ((flags & TJFLAG_NOREALLOC) != 0 || !doTile)
       for (i = 0; i < ntilesw * ntilesh; i++) {
         if ((jpegBuf[i] = (unsigned char *)
                           tjAlloc(tjBufSize(tilew, tileh, subsamp))) == NULL)
           _throwunix("allocating JPEG tiles");
       }
+=======
+		if((flags&TJFLAG_NOREALLOC)!=0 &&
+		   (dotile || xformop != TJXOP_NONE || xformopt != 0 || customFilter))
+			for(i=0; i<ntilesw*ntilesh; i++)
+			{
+				if(tjBufSize(tilew, tileh, subsamp) > (unsigned long)INT_MAX)
+					_throw("getting buffer size", "Image is too large");
+				if((jpegbuf[i]=(unsigned char *)tjAlloc(tjBufSize(tilew, tileh,
+					subsamp)))==NULL)
+					_throwunix("allocating JPEG tiles");
+			}
+>>>>>>> 611dba5 ([RESTRICT AUTOMERGE] Prevent integer overflows when handling large images)
 
     _w = w;  _h = h;  _tilew = tilew;  _tileh = tileh;
     if (!quiet) {
@@ -694,11 +889,21 @@ int decompTest(char *fileName)
         goto bailout;
     } else if (quiet == 1) printf("N/A\n");
 
+<<<<<<< HEAD
     for (i = 0; i < ntilesw * ntilesh; i++) {
       tjFree(jpegBuf[i]);  jpegBuf[i] = NULL;
     }
     free(jpegBuf);  jpegBuf = NULL;
     if (jpegSize) { free(jpegSize);  jpegSize = NULL; }
+=======
+		for(i=0; i<ntilesw*ntilesh; i++)
+		{
+			if (jpegbuf[i]) tjFree(jpegbuf[i]);
+			jpegbuf[i]=NULL;
+		}
+		free(jpegbuf);  jpegbuf=NULL;
+		if(jpegsize) {free(jpegsize);  jpegsize=NULL;}
+>>>>>>> 611dba5 ([RESTRICT AUTOMERGE] Prevent integer overflows when handling large images)
 
     if (tilew == w && tileh == h) break;
   }

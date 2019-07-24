@@ -463,6 +463,7 @@ DLLEXPORT tjhandle tjInitCompress(void)
 
 DLLEXPORT unsigned long tjBufSize(int width, int height, int jpegSubsamp)
 {
+<<<<<<< HEAD
   unsigned long retval = 0;
   int mcuw, mcuh, chromasf;
 
@@ -479,10 +480,29 @@ DLLEXPORT unsigned long tjBufSize(int width, int height, int jpegSubsamp)
 
 bailout:
   return retval;
+=======
+	unsigned long long retval=0;  int mcuw, mcuh, chromasf;
+	if(width<1 || height<1 || jpegSubsamp<0 || jpegSubsamp>=NUMSUBOPT)
+		_throw("tjBufSize(): Invalid argument");
+
+	/* This allows for rare corner cases in which a JPEG image can actually be
+	   larger than the uncompressed input (we wouldn't mention it if it hadn't
+	   happened before.) */
+	mcuw=tjMCUWidth[jpegSubsamp];
+	mcuh=tjMCUHeight[jpegSubsamp];
+	chromasf=jpegSubsamp==TJSAMP_GRAY? 0: 4*64/(mcuw*mcuh);
+	retval=PAD(width, mcuw) * PAD(height, mcuh) * (2ULL + chromasf) + 2048ULL;
+	if (retval > (unsigned long long)((unsigned long)-1))
+		_throw("tjBufSize(): Image is too large");
+
+	bailout:
+	return (unsigned long)retval;
+>>>>>>> 611dba5 ([RESTRICT AUTOMERGE] Prevent integer overflows when handling large images)
 }
 
 DLLEXPORT unsigned long TJBUFSIZE(int width, int height)
 {
+<<<<<<< HEAD
   unsigned long retval = 0;
 
   if (width < 1 || height < 1)
@@ -495,17 +515,38 @@ DLLEXPORT unsigned long TJBUFSIZE(int width, int height)
 
 bailout:
   return retval;
+=======
+	unsigned long long retval=0;
+	if(width<1 || height<1)
+		_throw("TJBUFSIZE(): Invalid argument");
+
+	/* This allows for rare corner cases in which a JPEG image can actually be
+	   larger than the uncompressed input (we wouldn't mention it if it hadn't
+	   happened before.) */
+	retval=PAD(width, 16) * PAD(height, 16) * 6 + 2048;
+	if (retval > (unsigned long long)((unsigned long)-1))
+		_throw("tjBufSize(): Image is too large");
+
+	bailout:
+	return (unsigned long)retval;
+>>>>>>> 611dba5 ([RESTRICT AUTOMERGE] Prevent integer overflows when handling large images)
 }
 
 
 DLLEXPORT unsigned long tjBufSizeYUV2(int width, int pad, int height,
                                       int subsamp)
 {
+<<<<<<< HEAD
   int retval = 0, nc, i;
+=======
+	unsigned long long retval=0;
+	int nc, i;
+>>>>>>> 611dba5 ([RESTRICT AUTOMERGE] Prevent integer overflows when handling large images)
 
   if (subsamp < 0 || subsamp >= NUMSUBOPT)
     _throwg("tjBufSizeYUV2(): Invalid argument");
 
+<<<<<<< HEAD
   nc = (subsamp == TJSAMP_GRAY ? 1 : 3);
   for (i = 0; i < nc; i++) {
     int pw = tjPlaneWidth(i, width, subsamp);
@@ -518,6 +559,22 @@ DLLEXPORT unsigned long tjBufSizeYUV2(int width, int pad, int height,
 
 bailout:
   return retval;
+=======
+	nc=(subsamp==TJSAMP_GRAY? 1:3);
+	for(i=0; i<nc; i++)
+	{
+		int pw=tjPlaneWidth(i, width, subsamp);
+		int stride=PAD(pw, pad);
+		int ph=tjPlaneHeight(i, height, subsamp);
+		if(pw<0 || ph<0) return -1;
+		else retval+=(unsigned long long)stride*ph;
+	}
+	if (retval > (unsigned long long)((unsigned long)-1))
+		_throw("tjBufSize(): Image is too large");
+
+	bailout:
+	return (unsigned long)retval;
+>>>>>>> 611dba5 ([RESTRICT AUTOMERGE] Prevent integer overflows when handling large images)
 }
 
 DLLEXPORT unsigned long tjBufSizeYUV(int width, int height, int subsamp)
@@ -576,8 +633,13 @@ bailout:
 DLLEXPORT unsigned long tjPlaneSizeYUV(int componentID, int width, int stride,
                                        int height, int subsamp)
 {
+<<<<<<< HEAD
   unsigned long retval = 0;
   int pw, ph;
+=======
+	unsigned long long retval=0;
+	int pw, ph;
+>>>>>>> 611dba5 ([RESTRICT AUTOMERGE] Prevent integer overflows when handling large images)
 
   if (width < 1 || height < 1 || subsamp < 0 || subsamp >= NUMSUBOPT)
     _throwg("tjPlaneSizeYUV(): Invalid argument");
@@ -589,10 +651,19 @@ DLLEXPORT unsigned long tjPlaneSizeYUV(int componentID, int width, int stride,
   if (stride == 0) stride = pw;
   else stride = abs(stride);
 
+<<<<<<< HEAD
   retval = stride * (ph - 1) + pw;
 
 bailout:
   return retval;
+=======
+	retval=(unsigned long long)stride*(ph-1)+pw;
+	if (retval > (unsigned long long)((unsigned long)-1))
+		_throw("tjPlaneSizeYUV(): Image is too large");
+
+	bailout:
+	return (unsigned long)retval;
+>>>>>>> 611dba5 ([RESTRICT AUTOMERGE] Prevent integer overflows when handling large images)
 }
 
 
@@ -641,6 +712,7 @@ DLLEXPORT int tjCompress2(tjhandle handle, const unsigned char *srcBuf,
   if (setCompDefaults(cinfo, pixelFormat, jpegSubsamp, jpegQual, flags) == -1)
     return -1;
 
+<<<<<<< HEAD
   jpeg_start_compress(cinfo, TRUE);
   for (i = 0; i < height; i++) {
     if (flags & TJFLAG_BOTTOMUP)
@@ -652,6 +724,23 @@ DLLEXPORT int tjCompress2(tjhandle handle, const unsigned char *srcBuf,
     jpeg_write_scanlines(cinfo, &row_pointer[cinfo->next_scanline],
                          cinfo->image_height - cinfo->next_scanline);
   jpeg_finish_compress(cinfo);
+=======
+	jpeg_start_compress(cinfo, TRUE);
+	if((row_pointer=(JSAMPROW *)malloc(sizeof(JSAMPROW)*height))==NULL)
+		_throw("tjCompress2(): Memory allocation failure");
+	for(i=0; i<height; i++)
+	{
+		if(flags&TJFLAG_BOTTOMUP)
+			row_pointer[i]=(JSAMPROW)&srcBuf[(height-i-1)*(size_t)pitch];
+		else row_pointer[i]=(JSAMPROW)&srcBuf[i*(size_t)pitch];
+	}
+	while(cinfo->next_scanline<cinfo->image_height)
+	{
+		jpeg_write_scanlines(cinfo, &row_pointer[cinfo->next_scanline],
+			cinfo->image_height-cinfo->next_scanline);
+	}
+	jpeg_finish_compress(cinfo);
+>>>>>>> 611dba5 ([RESTRICT AUTOMERGE] Prevent integer overflows when handling large images)
 
 bailout:
   if (cinfo->global_state > CSTATE_START) jpeg_abort_compress(cinfo);
@@ -762,6 +851,7 @@ DLLEXPORT int tjEncodeYUVPlanes(tjhandle handle, const unsigned char *srcBuf,
   if (height < ph0)
     for (i = height; i < ph0; i++) row_pointer[i] = row_pointer[height - 1];
 
+<<<<<<< HEAD
   for (i = 0; i < cinfo->num_components; i++) {
     compptr = &cinfo->comp_info[i];
     _tmpbuf[i] = (JSAMPLE *)malloc(
@@ -777,6 +867,18 @@ DLLEXPORT int tjEncodeYUVPlanes(tjhandle handle, const unsigned char *srcBuf,
     for (row = 0; row < cinfo->max_v_samp_factor; row++) {
       unsigned char *_tmpbuf_aligned =
         (unsigned char *)PAD((size_t)_tmpbuf[i], 32);
+=======
+	if((row_pointer=(JSAMPROW *)malloc(sizeof(JSAMPROW)*ph0))==NULL)
+		_throw("tjEncodeYUVPlanes(): Memory allocation failure");
+	for(i=0; i<height; i++)
+	{
+		if(flags&TJFLAG_BOTTOMUP)
+			row_pointer[i]=(JSAMPROW)&srcBuf[(height-i-1)*(size_t)pitch];
+		else row_pointer[i]=(JSAMPROW)&srcBuf[i*(size_t)pitch];
+	}
+	if(height<ph0)
+		for(i=height; i<ph0; i++) row_pointer[i]=row_pointer[height-1];
+>>>>>>> 611dba5 ([RESTRICT AUTOMERGE] Prevent integer overflows when handling large images)
 
       tmpbuf[i][row] = &_tmpbuf_aligned[
         PAD((compptr->width_in_blocks * cinfo->max_h_samp_factor * DCTSIZE) /
@@ -1271,12 +1373,57 @@ DLLEXPORT int tjDecompress2(tjhandle handle, const unsigned char *jpegBuf,
                         dinfo->output_height - dinfo->output_scanline);
   jpeg_finish_decompress(dinfo);
 
+<<<<<<< HEAD
 bailout:
   if (dinfo->global_state > DSTATE_START) jpeg_abort_decompress(dinfo);
   if (row_pointer) free(row_pointer);
   if (this->jerr.warning) retval = -1;
   this->jerr.stopOnWarning = FALSE;
   return retval;
+=======
+	#ifndef JCS_EXTENSIONS
+	if(pixelFormat!=TJPF_GRAY && pixelFormat!=TJPF_CMYK &&
+		(RGB_RED!=tjRedOffset[pixelFormat] ||
+			RGB_GREEN!=tjGreenOffset[pixelFormat] ||
+			RGB_BLUE!=tjBlueOffset[pixelFormat] ||
+			RGB_PIXELSIZE!=tjPixelSize[pixelFormat]))
+	{
+		rgbBuf=(unsigned char *)malloc(width*height*3);
+		if(!rgbBuf) _throw("tjDecompress2(): Memory allocation failure");
+		_pitch=pitch;  pitch=width*3;
+		_dstBuf=dstBuf;  dstBuf=rgbBuf;
+	}
+	#endif
+
+	if((row_pointer=(JSAMPROW *)malloc(sizeof(JSAMPROW)
+		*dinfo->output_height))==NULL)
+		_throw("tjDecompress2(): Memory allocation failure");
+	for(i=0; i<(int)dinfo->output_height; i++)
+	{
+		if(flags&TJFLAG_BOTTOMUP)
+			row_pointer[i]=&dstBuf[(dinfo->output_height-i-1)*(size_t)pitch];
+		else row_pointer[i]=&dstBuf[i*(size_t)pitch];
+	}
+	while(dinfo->output_scanline<dinfo->output_height)
+	{
+		jpeg_read_scanlines(dinfo, &row_pointer[dinfo->output_scanline],
+			dinfo->output_height-dinfo->output_scanline);
+	}
+	jpeg_finish_decompress(dinfo);
+
+	#ifndef JCS_EXTENSIONS
+	fromRGB(rgbBuf, _dstBuf, width, _pitch, height, pixelFormat);
+	#endif
+
+	bailout:
+	if(dinfo->global_state>DSTATE_START) jpeg_abort_decompress(dinfo);
+	#ifndef JCS_EXTENSIONS
+	if(rgbBuf) free(rgbBuf);
+	#endif
+	if(row_pointer) free(row_pointer);
+	if(this->jerr.warning) retval=-1;
+	return retval;
+>>>>>>> 611dba5 ([RESTRICT AUTOMERGE] Prevent integer overflows when handling large images)
 }
 
 DLLEXPORT int tjDecompress(tjhandle handle, unsigned char *jpegBuf,
@@ -1426,6 +1573,7 @@ DLLEXPORT int tjDecodeYUVPlanes(tjhandle handle,
   if (height < ph0)
     for (i = height; i < ph0; i++) row_pointer[i] = row_pointer[height - 1];
 
+<<<<<<< HEAD
   for (i = 0; i < dinfo->num_components; i++) {
     compptr = &dinfo->comp_info[i];
     _tmpbuf[i] =
@@ -1439,6 +1587,17 @@ DLLEXPORT int tjDecodeYUVPlanes(tjhandle handle,
     for (row = 0; row < compptr->v_samp_factor; row++) {
       unsigned char *_tmpbuf_aligned =
         (unsigned char *)PAD((size_t)_tmpbuf[i], 32);
+=======
+	if((row_pointer=(JSAMPROW *)malloc(sizeof(JSAMPROW)*ph0))==NULL)
+		_throw("tjDecodeYUVPlanes(): Memory allocation failure");
+	for(i=0; i<height; i++)
+	{
+		if(flags&TJFLAG_BOTTOMUP) row_pointer[i]=&dstBuf[(height-i-1)*(size_t)pitch];
+		else row_pointer[i]=&dstBuf[i*(size_t)pitch];
+	}
+	if(height<ph0)
+		for(i=height; i<ph0; i++) row_pointer[i]=row_pointer[height-1];
+>>>>>>> 611dba5 ([RESTRICT AUTOMERGE] Prevent integer overflows when handling large images)
 
       tmpbuf[i][row] =
         &_tmpbuf_aligned[PAD(compptr->width_in_blocks * DCTSIZE, 32) * row];
